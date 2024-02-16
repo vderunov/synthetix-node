@@ -6,7 +6,7 @@ import { namehash, normalize } from 'viem/ens';
 // @ts-ignore
 import * as contentHash from '@ensdomains/content-hash';
 import { DappType } from '../config';
-import { rpcRequest } from './ipfs';
+import { rpcRequest } from './util';
 
 Object.assign(global, { fetch });
 
