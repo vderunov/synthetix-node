@@ -1,6 +1,6 @@
 import { exec, spawn } from 'child_process';
 import https from 'https';
-import { createReadStream, createWriteStream, promises as fs, rmSync } from 'fs';
+import { createReadStream, createWriteStream, promises as fs } from 'fs';
 import { pipeline } from 'stream/promises';
 import os from 'os';
 import zlib from 'zlib';
@@ -8,7 +8,7 @@ import tar from 'tar';
 import http from 'http';
 import path from 'path';
 import type { IpcMainInvokeEvent } from 'electron';
-import { getPid, getPidsSync } from './pid';
+import { getPid, savePids } from './pid';
 import { ROOT } from './settings';
 import logger from 'electron-log';
 import unzipper from 'unzipper';
@@ -17,25 +17,6 @@ import { getPlatformDetails, rpcRequest } from './util';
 const HOME = os.homedir();
 // Change if we ever want IPFS to store its data in non-standart path
 const IPFS_PATH = path.join(HOME, '.ipfs');
-
-export function ipfsKill() {
-  try {
-    getPidsSync(
-      process.platform === 'win32' ? 'ipfs.exe' : '.synthetix/go-ipfs/ipfs daemon'
-    ).forEach((pid) => {
-      logger.log('Killing ipfs', pid);
-      process.kill(pid);
-    });
-    logger.log('Removing .ipfs/repo.lock');
-    rmSync(path.join(IPFS_PATH, 'repo.lock'), { recursive: true });
-  } catch (_e) {
-    // whatever
-  }
-}
-
-export async function ipfsPid() {
-  return await getPid(process.platform === 'win32' ? 'ipfs.exe' : '.synthetix/go-ipfs/ipfs daemon');
-}
 
 export async function ipfsIsInstalled() {
   try {
@@ -55,16 +36,20 @@ export async function ipfsDaemon() {
     return;
   }
 
-  const pid = await getPid(
-    process.platform === 'win32' ? 'ipfs.exe' : '.synthetix/go-ipfs/ipfs daemon'
-  );
+  const pid = getPid('ipfs');
 
-  if (!pid) {
-    await configureIpfs();
-    spawn(path.join(ROOT, 'go-ipfs/ipfs'), ['daemon'], {
-      stdio: 'inherit',
-      env: { IPFS_PATH },
-    });
+  if (pid) {
+    return;
+  }
+
+  await configureIpfs();
+  const { pid: subprocessPid } = spawn(path.join(ROOT, 'go-ipfs/ipfs'), ['daemon'], {
+    stdio: 'inherit',
+    env: { IPFS_PATH },
+  });
+
+  if (subprocessPid) {
+    savePids('ipfs', subprocessPid);
   }
 }
 
