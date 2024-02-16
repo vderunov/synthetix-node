@@ -12,7 +12,7 @@ import { isPidExist, PID_IPFS_FILE_PATH } from './pid';
 import { ROOT } from './settings';
 import logger from 'electron-log';
 import unzipper from 'unzipper';
-import { getPlatformDetails, rpcRequest } from './util';
+import { getPlatformDetails } from './util';
 
 const HOME = os.homedir();
 // Change if we ever want IPFS to store its data in non-standart path
