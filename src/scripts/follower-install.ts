@@ -1,9 +1,10 @@
-import { downloadFollower, followerDaemon, followerKill } from '../main/follower';
+import { downloadFollower, followerDaemon } from '../main/follower';
+import { killPids } from '../main/pid';
 
 async function main() {
   await downloadFollower();
   await followerDaemon();
 }
 
-process.on('beforeExit', followerKill);
+process.on('beforeExit', killPids);
 main();
