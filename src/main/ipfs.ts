@@ -12,7 +12,7 @@ import { getPid, savePids } from './pid';
 import { ROOT } from './settings';
 import logger from 'electron-log';
 import unzipper from 'unzipper';
-import { getPlatformDetails } from './util';
+import { getPlatformDetails, rpcRequest } from './util';
 
 const HOME = os.homedir();
 // Change if we ever want IPFS to store its data in non-standart path
