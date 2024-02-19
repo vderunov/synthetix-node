@@ -46,7 +46,7 @@ export async function ipfsTeardown() {
     const pid = getIpfsPid();
     if (pid) {
       await removePidFile();
-      logger.log('Shut down the IPFS daemon');
+      logger.log('Shutting down the IPFS daemon');
       await rpcRequest('shutdown');
       logger.log('Removing .ipfs/repo.lock');
       rmSync(path.join(IPFS_PATH, 'repo.lock'), { recursive: true });
