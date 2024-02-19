@@ -10,7 +10,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 import logger from 'electron-log';
 import { SYNTHETIX_IPNS } from '../const';
 import { ROOT } from './settings';
-import { getPid, savePids } from './pid';
+import { PID_FOLLOWER_FILE_PATH, isPidExist } from './pid';
 import unzipper from 'unzipper';
 import { getPlatformDetails } from './util';
 
@@ -41,9 +41,7 @@ export async function followerDaemon() {
     return;
   }
 
-  const pid = getPid('ipfs-cluster-follow');
-
-  if (pid) {
+  if (isPidExist(PID_FOLLOWER_FILE_PATH)) {
     return;
   }
   await configureFollower();
@@ -65,7 +63,7 @@ export async function followerDaemon() {
     // whatever
   }
 
-  const { pid: subprocessPid } = spawn(
+  const { pid } = spawn(
     path.join(ROOT, 'ipfs-cluster-follow/ipfs-cluster-follow'),
     ['synthetix', 'run'],
     {
@@ -74,8 +72,8 @@ export async function followerDaemon() {
     }
   );
 
-  if (subprocessPid) {
-    savePids('ipfs-cluster-follow', subprocessPid);
+  if (pid) {
+    await fs.writeFile(PID_FOLLOWER_FILE_PATH, pid.toString(), 'utf8');
   }
 }
 
