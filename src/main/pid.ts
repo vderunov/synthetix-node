@@ -1,57 +1,56 @@
 import { exec } from 'child_process';
 import logger from 'electron-log';
-import { readFileSync, writeFileSync, existsSync, promises as fs } from 'fs';
+import { readFileSync, existsSync, promises as fs } from 'fs';
+import path from 'path';
+import { ROOT } from './settings';
 
-const PID_FILE_PATH = './process_ids.json';
+export const PID_IPFS_FILE_PATH = path.join(ROOT, 'ipfs_process_id.txt');
+export const PID_FOLLOWER_FILE_PATH = path.join(ROOT, 'follower_process_id.txt');
 
 export async function killPids() {
+  await killPidFromFilePath(PID_IPFS_FILE_PATH, 'ipfs');
+  await killPidFromFilePath(PID_FOLLOWER_FILE_PATH, 'follower');
+  await deleteFiles();
+}
+
+async function killPidFromFilePath(PID_FILE_PATH: string, processLabel: string) {
   if (!existsSync(PID_FILE_PATH)) {
-    logger.log('File with pids does not exist or has already been deleted');
+    logger.log(`File with ${processLabel} pid does not exist or has already been deleted`);
     return;
   }
 
   try {
-    const rawData = readFileSync(PID_FILE_PATH, 'utf8');
-    const pidObject = JSON.parse(rawData);
-    const isWin32 = process.platform === 'win32';
+    const pid = readFileSync(PID_FILE_PATH, 'utf8').trim();
 
-    Object.keys(pidObject).forEach((processName) => {
-      const pid = pidObject[processName];
-      if (!pid) {
-        throw new Error(`No PID found for process ${processName}`);
-      }
+    if (!pid) {
+      throw new Error(`No PID found for process ${processLabel}`);
+    }
 
-      if (isWin32) {
-        exec(`taskkill /F /PID ${pid}`);
-      } else {
-        process.kill(pid);
-      }
-    });
-
-    if (existsSync(PID_FILE_PATH)) {
-      await fs.rm(PID_FILE_PATH);
+    if (process.platform === 'win32') {
+      exec(`taskkill /F /PID ${pid}`);
+    } else {
+      process.kill(Number(pid));
     }
   } catch (e) {
-    logger.error('An error occurred while trying to stop processes: ', e);
+    logger.error(`An error occurred while trying to stop ${processLabel} process: `, e);
   }
 }
 
-export function getPid(processName: string): number | null {
+async function deleteFiles() {
+  await Promise.all(
+    [PID_IPFS_FILE_PATH, PID_FOLLOWER_FILE_PATH].map((path) =>
+      fs.rm(path).catch((err) => {
+        logger.error(`Could not delete ${path}: `, err.message);
+      })
+    )
+  );
+}
+
+export function isPidExist(PID_FILE_PATH: string): boolean {
   if (existsSync(PID_FILE_PATH)) {
-    const pidObject = JSON.parse(readFileSync(PID_FILE_PATH, 'utf8'));
-    return pidObject[processName] ?? null;
+    return !!readFileSync(PID_FILE_PATH, 'utf8').trim();
   } else {
     logger.log(`PID file does not exist: ${PID_FILE_PATH}`);
-    return null;
+    return false;
   }
-}
-
-export function savePids(processName: string, processId: number) {
-  const existingProcesses = existsSync(PID_FILE_PATH)
-    ? JSON.parse(readFileSync(PID_FILE_PATH, 'utf8'))
-    : {};
-
-  existingProcesses[processName] = processId;
-
-  writeFileSync(PID_FILE_PATH, JSON.stringify(existingProcesses));
 }

@@ -8,7 +8,7 @@ import tar from 'tar';
 import http from 'http';
 import path from 'path';
 import type { IpcMainInvokeEvent } from 'electron';
-import { getPid, savePids } from './pid';
+import { isPidExist, PID_IPFS_FILE_PATH } from './pid';
 import { ROOT } from './settings';
 import logger from 'electron-log';
 import unzipper from 'unzipper';
@@ -59,20 +59,18 @@ export async function ipfsDaemon() {
     return;
   }
 
-  const pid = getPid('ipfs');
-
-  if (pid) {
+  if (isPidExist(PID_IPFS_FILE_PATH)) {
     return;
   }
 
   await configureIpfs();
-  const { pid: subprocessPid } = spawn(path.join(ROOT, 'go-ipfs/ipfs'), ['daemon'], {
+  const { pid } = spawn(path.join(ROOT, 'go-ipfs/ipfs'), ['daemon'], {
     stdio: 'inherit',
     env: { IPFS_PATH },
   });
 
-  if (subprocessPid) {
-    savePids('ipfs', subprocessPid);
+  if (pid) {
+    await fs.writeFile(PID_IPFS_FILE_PATH, pid.toString(), 'utf8');
   }
 }
 
