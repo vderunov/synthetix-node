@@ -17,7 +17,7 @@ import {
   ipfsDaemon,
   ipfsIsInstalled,
   ipfsIsRunning,
-  ipfsKill,
+  ipfsTeardown,
   waitForIpfs,
   rpcRequest,
 } from './ipfs';
@@ -29,7 +29,7 @@ import {
   followerId,
   followerIsInstalled,
   followerKill,
-  followerPid,
+  getFollowerPid,
 } from './follower';
 import { DAPPS, resolveDapp } from './dapps';
 import { fetchPeers } from './peers';
@@ -290,7 +290,7 @@ ipcMain.handle('install-follower', downloadFollower);
 ipcMain.handle('ipfs-isInstalled', ipfsIsInstalled);
 ipcMain.handle('follower-isInstalled', followerIsInstalled);
 ipcMain.handle('ipfs-isRunning', ipfsIsRunning);
-ipcMain.handle('follower-isRunning', followerPid);
+ipcMain.handle('follower-isRunning', getFollowerPid);
 
 ipcMain.handle('run-ipfs', async () => {
   await configureIpfs();
@@ -308,7 +308,7 @@ ipcMain.handle('ipfs-repo-stat', () => rpcRequest('repo/stat'));
 ipcMain.handle('ipfs-stats-bw', () => rpcRequest('stats/bw'));
 ipcMain.handle('ipfs-follower-info', () => follower('synthetix info'));
 
-app.on('will-quit', ipfsKill);
+app.on('will-quit', ipfsTeardown);
 app.on('will-quit', followerKill);
 
 downloadIpfs();

@@ -1,6 +1,6 @@
 import { exec, spawn } from 'child_process';
 import https from 'https';
-import { createReadStream, createWriteStream, promises as fs } from 'fs';
+import { createReadStream, createWriteStream, promises as fs, readFileSync } from 'fs';
 import { pipeline } from 'stream/promises';
 import os from 'os';
 import zlib from 'zlib';
@@ -10,35 +10,45 @@ import type { IpcMainInvokeEvent } from 'electron';
 import logger from 'electron-log';
 import { SYNTHETIX_IPNS } from '../const';
 import { ROOT } from './settings';
-import { getPid, getPidsSync } from './pid';
+import { getPid, PID_FOLLOWER_FILE_PATH } from './pid';
 import unzipper from 'unzipper';
-import { getPlatformDetails } from './util';
+import { getPlatformDetails, killProcess } from './util';
+import { rpcRequest } from './ipfs';
 
 // Change if we ever want to store all follower info in a custom folder
 const HOME = os.homedir();
 const IPFS_FOLLOW_PATH = path.join(HOME, '.ipfs-cluster-follow');
 
-export function followerKill() {
+export async function followerKill() {
+  // TODO: need to figure out why it does not work with async
+  const identity = JSON.parse(
+    readFileSync(path.join(IPFS_FOLLOW_PATH, 'synthetix/identity.json'), 'utf8')
+  );
+  logger.log('identity.id', identity.id);
+  // TODO: rpcRequest doesn't work, daemon is killed
+  const addrs = await rpcRequest('swarm/addrs');
+  logger.log('addrs', addrs);
   try {
-    getPidsSync(
-      process.platform === 'win32'
-        ? 'ipfs-cluster-follow.exe'
-        : '.synthetix/ipfs-cluster-follow/ipfs-cluster-follow synthetix run'
-    ).forEach((pid) => {
-      logger.log('Killing ipfs-cluster-follow', pid);
-      process.kill(pid);
-    });
+    const pid = getFollowerPid();
+    if (pid) {
+      logger.log('Killing ipfs-cluster-follow process');
+      await killProcess(pid);
+      await removePidFile();
+    }
   } catch (_e) {
     // whatever
   }
 }
 
-export async function followerPid() {
-  return await getPid(
-    process.platform === 'win32'
-      ? 'ipfs-cluster-follow.exe'
-      : '.synthetix/ipfs-cluster-follow/ipfs-cluster-follow synthetix run'
-  );
+async function removePidFile() {
+  logger.log('Removing ipfs-cluster-follow.pid');
+  await fs.rm(PID_FOLLOWER_FILE_PATH).catch((err) => {
+    logger.error(`Could not remove ${PID_FOLLOWER_FILE_PATH}: `, err.message);
+  });
+}
+
+export function getFollowerPid() {
+  return getPid(PID_FOLLOWER_FILE_PATH);
 }
 
 export async function followerIsInstalled() {
@@ -64,36 +74,40 @@ export async function followerDaemon() {
     return;
   }
 
-  const pid = await getPid(
-    process.platform === 'win32'
-      ? 'ipfs-cluster-follow.exe'
-      : '.synthetix/ipfs-cluster-follow/ipfs-cluster-follow synthetix run'
-  );
+  const pid = getFollowerPid();
 
-  if (!pid) {
-    await configureFollower();
+  if (pid) {
+    return;
+  }
+  await configureFollower();
 
-    try {
-      // Cleanup locks in case of a previous crash
-      await Promise.all([
-        fs.rm(path.join(IPFS_FOLLOW_PATH, 'synthetix/badger'), {
-          recursive: true,
-          force: true,
-        }),
-        fs.rm(path.join(IPFS_FOLLOW_PATH, 'synthetix/api-socket'), {
-          recursive: true,
-          force: true,
-        }),
-      ]);
-    } catch (e) {
-      logger.error(e);
-      // whatever
-    }
+  try {
+    // Cleanup locks in case of a previous crash
+    await Promise.all([
+      fs.rm(path.join(IPFS_FOLLOW_PATH, 'synthetix/badger'), {
+        recursive: true,
+        force: true,
+      }),
+      fs.rm(path.join(IPFS_FOLLOW_PATH, 'synthetix/api-socket'), {
+        recursive: true,
+        force: true,
+      }),
+    ]);
+  } catch (e) {
+    logger.error(e);
+    // whatever
+  }
 
-    spawn(path.join(ROOT, 'ipfs-cluster-follow/ipfs-cluster-follow'), ['synthetix', 'run'], {
+  const { pid: followerPid } = spawn(
+    path.join(ROOT, 'ipfs-cluster-follow/ipfs-cluster-follow'),
+    ['synthetix', 'run'],
+    {
       stdio: 'inherit',
       env: { HOME },
-    });
+    }
+  );
+  if (followerPid) {
+    await fs.writeFile(PID_FOLLOWER_FILE_PATH, followerPid.toString(), 'utf8');
   }
 }
 
@@ -208,6 +222,7 @@ export async function followerId() {
     );
     return identity.id;
   } catch (_error) {
+    logger.log(`followerId: `, _error);
     return '';
   }
 }

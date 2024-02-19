@@ -8,11 +8,11 @@ import tar from 'tar';
 import http from 'http';
 import path from 'path';
 import type { IpcMainInvokeEvent } from 'electron';
-import { getPid, getPidsSync } from './pid';
+import { getPid, PID_IPFS_FILE_PATH } from './pid';
 import { ROOT } from './settings';
 import logger from 'electron-log';
 import unzipper from 'unzipper';
-import { getPlatformDetails } from './util';
+import { getPlatformDetails, killProcess } from './util';
 
 const HOME = os.homedir();
 // Change if we ever want IPFS to store its data in non-standart path
@@ -41,23 +41,32 @@ export async function rpcRequest(
   }
 }
 
-export function ipfsKill() {
+export async function ipfsTeardown() {
   try {
-    getPidsSync(
-      process.platform === 'win32' ? 'ipfs.exe' : '.synthetix/go-ipfs/ipfs daemon'
-    ).forEach((pid) => {
-      logger.log('Killing ipfs', pid);
-      process.kill(pid);
-    });
-    logger.log('Removing .ipfs/repo.lock');
-    rmSync(path.join(IPFS_PATH, 'repo.lock'), { recursive: true });
+    const pid = getIpfsPid();
+    if (pid) {
+      logger.log('Killing ipfs process');
+      // TODO: find out why it's not working?
+      // await rpcRequest('shutdown');
+      await killProcess(pid);
+      await removePidFile();
+      logger.log('Removing .ipfs/repo.lock');
+      rmSync(path.join(IPFS_PATH, 'repo.lock'), { recursive: true });
+    }
   } catch (_e) {
     // whatever
   }
 }
 
-export async function ipfsPid() {
-  return await getPid(process.platform === 'win32' ? 'ipfs.exe' : '.synthetix/go-ipfs/ipfs daemon');
+async function removePidFile() {
+  logger.log('Removing ipfs.pid');
+  await fs.rm(PID_IPFS_FILE_PATH).catch((err) => {
+    logger.error(`Could not remove ${PID_IPFS_FILE_PATH}: `, err.message);
+  });
+}
+
+export function getIpfsPid() {
+  return getPid(PID_IPFS_FILE_PATH);
 }
 
 export async function ipfsIsInstalled() {
@@ -78,16 +87,19 @@ export async function ipfsDaemon() {
     return;
   }
 
-  const pid = await getPid(
-    process.platform === 'win32' ? 'ipfs.exe' : '.synthetix/go-ipfs/ipfs daemon'
-  );
+  const pid = getIpfsPid();
 
-  if (!pid) {
-    await configureIpfs();
-    spawn(path.join(ROOT, 'go-ipfs/ipfs'), ['daemon'], {
-      stdio: 'inherit',
-      env: { IPFS_PATH },
-    });
+  if (pid) {
+    return;
+  }
+
+  await configureIpfs();
+  const { pid: ipfsPid } = spawn(path.join(ROOT, 'go-ipfs/ipfs'), ['daemon'], {
+    stdio: 'inherit',
+    env: { IPFS_PATH },
+  });
+  if (ipfsPid) {
+    await fs.writeFile(PID_IPFS_FILE_PATH, ipfsPid.toString(), 'utf8');
   }
 }
 

@@ -1,6 +1,7 @@
 import { URL } from 'url';
 import path from 'path';
 import os from 'os';
+import { exec } from 'child_process';
 
 export function resolveHtmlPath(htmlFileName: string) {
   if (process.env.NODE_ENV === 'development') {
@@ -18,4 +19,12 @@ export function getPlatformDetails() {
   const osPlatform = process.platform === 'darwin' ? 'darwin' : 'windows';
   const fileExt = osPlatform === 'darwin' ? 'tar.gz' : 'zip';
   return { osPlatform, fileExt, targetArch };
+}
+
+export async function killProcess(pid: number) {
+  if (process.platform === 'win32') {
+    exec(`taskkill /F /PID ${pid}`);
+  } else {
+    process.kill(pid);
+  }
 }
