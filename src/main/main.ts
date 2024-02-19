@@ -28,7 +28,7 @@ import {
   followerId,
   followerIsInstalled,
 } from './follower';
-import { killPids, getPid } from './pid';
+import { killPids, isPidExist, PID_FOLLOWER_FILE_PATH } from './pid';
 import { DAPPS, resolveDapp } from './dapps';
 import { fetchPeers } from './peers';
 import { SYNTHETIX_NODE_APP_CONFIG } from '../const';
@@ -288,7 +288,7 @@ ipcMain.handle('install-follower', downloadFollower);
 ipcMain.handle('ipfs-isInstalled', ipfsIsInstalled);
 ipcMain.handle('follower-isInstalled', followerIsInstalled);
 ipcMain.handle('ipfs-isRunning', ipfsIsRunning);
-ipcMain.handle('follower-isRunning', () => getPid('ipfs-cluster-follow'));
+ipcMain.handle('follower-isRunning', () => isPidExist(PID_FOLLOWER_FILE_PATH));
 
 ipcMain.handle('run-ipfs', async () => {
   await configureIpfs();
