@@ -12,7 +12,7 @@ import { getPid, PID_IPFS_FILE_PATH } from './pid';
 import { ROOT } from './settings';
 import logger from 'electron-log';
 import unzipper from 'unzipper';
-import { getPlatformDetails, killProcess } from './util';
+import { getPlatformDetails } from './util';
 
 const HOME = os.homedir();
 // Change if we ever want IPFS to store its data in non-standart path
@@ -45,11 +45,9 @@ export async function ipfsTeardown() {
   try {
     const pid = getIpfsPid();
     if (pid) {
-      logger.log('Killing ipfs process');
-      // TODO: find out why it's not working?
-      // await rpcRequest('shutdown');
-      await killProcess(pid);
       await removePidFile();
+      logger.log('Shut down the IPFS daemon');
+      await rpcRequest('shutdown');
       logger.log('Removing .ipfs/repo.lock');
       rmSync(path.join(IPFS_PATH, 'repo.lock'), { recursive: true });
     }

@@ -12,31 +12,39 @@ import { SYNTHETIX_IPNS } from '../const';
 import { ROOT } from './settings';
 import { getPid, PID_FOLLOWER_FILE_PATH } from './pid';
 import unzipper from 'unzipper';
-import { getPlatformDetails, killProcess } from './util';
-import { rpcRequest } from './ipfs';
+import { getPlatformDetails } from './util';
+// import { rpcRequest } from './ipfs';
 
 // Change if we ever want to store all follower info in a custom folder
 const HOME = os.homedir();
 const IPFS_FOLLOW_PATH = path.join(HOME, '.ipfs-cluster-follow');
 
 export async function followerKill() {
-  // TODO: need to figure out why it does not work with async
-  const identity = JSON.parse(
-    readFileSync(path.join(IPFS_FOLLOW_PATH, 'synthetix/identity.json'), 'utf8')
-  );
-  logger.log('identity.id', identity.id);
-  // TODO: rpcRequest doesn't work, daemon is killed
-  const addrs = await rpcRequest('swarm/addrs');
-  logger.log('addrs', addrs);
+  // // TODO: need to figure out why it does not work with async
+  // const identity = JSON.parse(
+  //   readFileSync(path.join(IPFS_FOLLOW_PATH, 'synthetix/identity.json'), 'utf8')
+  // );
+  // logger.log('identity.id', identity.id);
+  // // TODO: rpcRequest doesn't work, daemon is killed
+  // const addrs = await rpcRequest('swarm/addrs');
+  // logger.log('addrs', addrs);
   try {
     const pid = getFollowerPid();
     if (pid) {
-      logger.log('Killing ipfs-cluster-follow process');
       await killProcess(pid);
       await removePidFile();
     }
   } catch (_e) {
     // whatever
+  }
+}
+
+async function killProcess(pid: number) {
+  logger.log('Killing ipfs-cluster-follow process');
+  if (process.platform === 'win32') {
+    exec(`taskkill /F /PID ${pid}`);
+  } else {
+    process.kill(pid);
   }
 }
 
