@@ -1,6 +1,6 @@
 import { exec, spawn, execSync } from 'child_process';
 import https from 'https';
-import { createReadStream, createWriteStream, promises as fs, readFileSync, rmSync } from 'fs';
+import { createReadStream, createWriteStream, promises as fs, rmSync } from 'fs';
 import { pipeline } from 'stream/promises';
 import os from 'os';
 import zlib from 'zlib';
@@ -8,7 +8,6 @@ import tar from 'tar';
 import http from 'http';
 import path from 'path';
 import type { IpcMainInvokeEvent } from 'electron';
-import { PID_IPFS_FILE_PATH, getPid } from './pid';
 import { ROOT } from './settings';
 import logger from 'electron-log';
 import unzipper from 'unzipper';
@@ -43,14 +42,12 @@ export async function rpcRequest(
 
 export function ipfsTeardown() {
   try {
-    if (readFileSync(PID_IPFS_FILE_PATH, 'utf8')) {
-      rmSync(PID_IPFS_FILE_PATH);
-      rmSync(path.join(IPFS_PATH, 'repo.lock'), { recursive: true });
-      execSync(
-        process.platform === 'win32' ? 'ipfs.exe shutdown' : '.synthetix/go-ipfs/ipfs shutdown'
-      );
-      logger.log('IPFS teardown: PID file removed, daemon shutdown, and repo.lock removed');
-    }
+    execSync(
+      process.platform === 'win32' ? 'ipfs.exe shutdown' : '.synthetix/go-ipfs/ipfs shutdown'
+    );
+    rmSync(path.join(ROOT, 'ipfs.pid'), { recursive: true });
+    rmSync(path.join(IPFS_PATH, 'repo.lock'), { recursive: true });
+    logger.log('IPFS teardown: PID file removed, daemon shutdown, and repo.lock removed');
   } catch (e) {
     logger.log('IPFS teardown error:', e);
   }
@@ -74,7 +71,7 @@ export async function ipfsDaemon() {
     return;
   }
 
-  const pid = await getPid(PID_IPFS_FILE_PATH);
+  const pid = await fs.readFile(path.join(ROOT, 'ipfs.pid'), 'utf8');
 
   if (pid) {
     return;
@@ -86,7 +83,7 @@ export async function ipfsDaemon() {
     env: { IPFS_PATH },
   });
   if (ipfsPid) {
-    await fs.writeFile(PID_IPFS_FILE_PATH, ipfsPid.toString(), 'utf8');
+    await fs.writeFile(path.join(ROOT, 'ipfs.pid'), ipfsPid.toString(), 'utf8');
   }
 }
 

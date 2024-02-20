@@ -1,4 +1,4 @@
-import { exec, spawn, execSync } from 'child_process';
+import { exec, spawn } from 'child_process';
 import https from 'https';
 import { createReadStream, createWriteStream, promises as fs, readFileSync, rmSync } from 'fs';
 import { pipeline } from 'stream/promises';
@@ -10,10 +10,8 @@ import type { IpcMainInvokeEvent } from 'electron';
 import logger from 'electron-log';
 import { SYNTHETIX_IPNS } from '../const';
 import { ROOT } from './settings';
-import { getPid, PID_FOLLOWER_FILE_PATH } from './pid';
 import unzipper from 'unzipper';
 import { getPlatformDetails } from './util';
-// import { rpcRequest } from './ipfs';
 
 // Change if we ever want to store all follower info in a custom folder
 const HOME = os.homedir();
@@ -21,18 +19,14 @@ const IPFS_FOLLOW_PATH = path.join(HOME, '.ipfs-cluster-follow');
 
 export function followerKill() {
   try {
-    const pid = readFileSync(PID_FOLLOWER_FILE_PATH, 'utf8');
+    const pid = readFileSync(path.join(ROOT, 'ipfs-cluster-follow.pid'), 'utf8');
     if (pid) {
-      rmSync(PID_FOLLOWER_FILE_PATH);
-      if (process.platform === 'win32') {
-        execSync(`taskkill /F /PID ${pid}`);
-      } else {
-        process.kill(Number(pid));
-      }
+      process.kill(Number(pid));
+      rmSync(path.join(ROOT, 'ipfs-cluster-follow.pid'));
       logger.log(`follower kill: PID ${pid} killed and PID file removed`);
     }
-  } catch (e) {
-    logger.log('follower kill error:', e);
+  } catch (_e) {
+    // whatever
   }
 }
 
@@ -59,7 +53,7 @@ export async function followerDaemon() {
     return;
   }
 
-  const pid = await getPid(PID_FOLLOWER_FILE_PATH);
+  const pid = await fs.readFile(path.join(ROOT, 'ipfs-cluster-follow.pid'), 'utf8');
 
   if (pid) {
     return;
@@ -92,7 +86,7 @@ export async function followerDaemon() {
     }
   );
   if (followerPid) {
-    await fs.writeFile(PID_FOLLOWER_FILE_PATH, followerPid.toString(), 'utf8');
+    await fs.writeFile(path.join(ROOT, 'ipfs-cluster-follow.pid'), followerPid.toString(), 'utf8');
   }
 }
 
@@ -207,7 +201,6 @@ export async function followerId() {
     );
     return identity.id;
   } catch (_error) {
-    logger.log(`followerId: `, _error);
     return '';
   }
 }

@@ -30,13 +30,14 @@ import {
   followerIsInstalled,
   followerKill,
 } from './follower';
-import { getPid, PID_FOLLOWER_FILE_PATH } from './pid';
 import { DAPPS, resolveDapp } from './dapps';
 import { fetchPeers } from './peers';
 import { SYNTHETIX_NODE_APP_CONFIG } from '../const';
 import * as settings from './settings';
 import http from 'http';
 import fetch from 'node-fetch';
+import { ROOT } from './settings';
+import { promises as fs } from 'fs';
 
 logger.transports.file.level = 'info';
 
@@ -290,7 +291,9 @@ ipcMain.handle('install-follower', downloadFollower);
 ipcMain.handle('ipfs-isInstalled', ipfsIsInstalled);
 ipcMain.handle('follower-isInstalled', followerIsInstalled);
 ipcMain.handle('ipfs-isRunning', ipfsIsRunning);
-ipcMain.handle('follower-isRunning', () => getPid(PID_FOLLOWER_FILE_PATH));
+ipcMain.handle('follower-isRunning', () =>
+  fs.readFile(path.join(ROOT, 'ipfs-cluster-follow.pid'), 'utf8').catch(() => null)
+);
 
 ipcMain.handle('run-ipfs', async () => {
   await configureIpfs();
