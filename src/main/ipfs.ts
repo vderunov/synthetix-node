@@ -71,7 +71,7 @@ export async function ipfsDaemon() {
     return;
   }
 
-  const pid = await fs.readFile(path.join(ROOT, 'ipfs.pid'), 'utf8');
+  const pid = await fs.readFile(path.join(ROOT, 'ipfs.pid'), 'utf8').catch(() => null);
 
   if (pid) {
     return;

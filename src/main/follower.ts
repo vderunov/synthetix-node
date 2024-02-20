@@ -53,7 +53,9 @@ export async function followerDaemon() {
     return;
   }
 
-  const pid = await fs.readFile(path.join(ROOT, 'ipfs-cluster-follow.pid'), 'utf8');
+  const pid = await fs
+    .readFile(path.join(ROOT, 'ipfs-cluster-follow.pid'), 'utf8')
+    .catch(() => null);
 
   if (pid) {
     return;
