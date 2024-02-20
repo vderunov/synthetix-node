@@ -1,6 +1,6 @@
-import { exec, spawn } from 'child_process';
+import { exec, spawn, execSync } from 'child_process';
 import https from 'https';
-import { createReadStream, createWriteStream, promises as fs, rmSync } from 'fs';
+import { createReadStream, createWriteStream, promises as fs, readFileSync, rmSync } from 'fs';
 import { pipeline } from 'stream/promises';
 import os from 'os';
 import zlib from 'zlib';
@@ -8,7 +8,7 @@ import tar from 'tar';
 import http from 'http';
 import path from 'path';
 import type { IpcMainInvokeEvent } from 'electron';
-import { getPid, PID_IPFS_FILE_PATH } from './pid';
+import { PID_IPFS_FILE_PATH, getPid } from './pid';
 import { ROOT } from './settings';
 import logger from 'electron-log';
 import unzipper from 'unzipper';
@@ -41,30 +41,19 @@ export async function rpcRequest(
   }
 }
 
-export async function ipfsTeardown() {
+export function ipfsTeardown() {
   try {
-    const pid = getIpfsPid();
-    if (pid) {
-      await removePidFile();
-      logger.log('Shutting down the IPFS daemon');
-      await rpcRequest('shutdown');
-      logger.log('Removing .ipfs/repo.lock');
+    if (readFileSync(PID_IPFS_FILE_PATH, 'utf8')) {
+      execSync(
+        process.platform === 'win32' ? 'ipfs.exe shutdown' : '.synthetix/go-ipfs/ipfs shutdown'
+      );
+      rmSync(PID_IPFS_FILE_PATH);
       rmSync(path.join(IPFS_PATH, 'repo.lock'), { recursive: true });
+      logger.log('IPFS teardown: PID file removed, daemon shutdown, and repo.lock removed');
     }
-  } catch (_e) {
-    // whatever
+  } catch (e) {
+    logger.log('IPFS teardown error:', e);
   }
-}
-
-async function removePidFile() {
-  logger.log('Removing ipfs.pid');
-  await fs.rm(PID_IPFS_FILE_PATH).catch((err) => {
-    logger.error(`Could not remove ${PID_IPFS_FILE_PATH}: `, err.message);
-  });
-}
-
-export function getIpfsPid() {
-  return getPid(PID_IPFS_FILE_PATH);
 }
 
 export async function ipfsIsInstalled() {
@@ -85,7 +74,7 @@ export async function ipfsDaemon() {
     return;
   }
 
-  const pid = getIpfsPid();
+  const pid = await getPid(PID_IPFS_FILE_PATH);
 
   if (pid) {
     return;

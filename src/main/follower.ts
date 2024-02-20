@@ -1,6 +1,6 @@
-import { exec, spawn } from 'child_process';
+import { exec, spawn, execSync } from 'child_process';
 import https from 'https';
-import { createReadStream, createWriteStream, promises as fs, readFileSync } from 'fs';
+import { createReadStream, createWriteStream, promises as fs, readFileSync, rmSync } from 'fs';
 import { pipeline } from 'stream/promises';
 import os from 'os';
 import zlib from 'zlib';
@@ -19,44 +19,21 @@ import { getPlatformDetails } from './util';
 const HOME = os.homedir();
 const IPFS_FOLLOW_PATH = path.join(HOME, '.ipfs-cluster-follow');
 
-export async function followerKill() {
-  // // TODO: need to figure out why it does not work with async
-  // const identity = JSON.parse(
-  //   readFileSync(path.join(IPFS_FOLLOW_PATH, 'synthetix/identity.json'), 'utf8')
-  // );
-  // logger.log('identity.id', identity.id);
-  // // TODO: rpcRequest doesn't work, daemon is killed
-  // const addrs = await rpcRequest('swarm/addrs');
-  // logger.log('addrs', addrs);
+export function followerKill() {
   try {
-    const pid = getFollowerPid();
+    const pid = readFileSync(PID_FOLLOWER_FILE_PATH, 'utf8');
     if (pid) {
-      await killProcess(pid);
-      await removePidFile();
+      if (process.platform === 'win32') {
+        execSync(`taskkill /F /PID ${pid}`);
+      } else {
+        process.kill(Number(pid));
+      }
+      rmSync(PID_FOLLOWER_FILE_PATH);
+      logger.log(`follower kill: PID ${pid} killed and PID file removed`);
     }
-  } catch (_e) {
-    // whatever
+  } catch (e) {
+    logger.log('follower kill error:', e);
   }
-}
-
-async function killProcess(pid: number) {
-  logger.log('Killing ipfs-cluster-follow process');
-  if (process.platform === 'win32') {
-    exec(`taskkill /F /PID ${pid}`);
-  } else {
-    process.kill(pid);
-  }
-}
-
-async function removePidFile() {
-  logger.log('Removing ipfs-cluster-follow.pid');
-  await fs.rm(PID_FOLLOWER_FILE_PATH).catch((err) => {
-    logger.error(`Could not remove ${PID_FOLLOWER_FILE_PATH}: `, err.message);
-  });
-}
-
-export function getFollowerPid() {
-  return getPid(PID_FOLLOWER_FILE_PATH);
 }
 
 export async function followerIsInstalled() {
@@ -82,7 +59,7 @@ export async function followerDaemon() {
     return;
   }
 
-  const pid = getFollowerPid();
+  const pid = await getPid(PID_FOLLOWER_FILE_PATH);
 
   if (pid) {
     return;
