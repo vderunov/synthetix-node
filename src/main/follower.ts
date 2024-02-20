@@ -23,12 +23,12 @@ export function followerKill() {
   try {
     const pid = readFileSync(PID_FOLLOWER_FILE_PATH, 'utf8');
     if (pid) {
+      rmSync(PID_FOLLOWER_FILE_PATH);
       if (process.platform === 'win32') {
         execSync(`taskkill /F /PID ${pid}`);
       } else {
         process.kill(Number(pid));
       }
-      rmSync(PID_FOLLOWER_FILE_PATH);
       logger.log(`follower kill: PID ${pid} killed and PID file removed`);
     }
   } catch (e) {

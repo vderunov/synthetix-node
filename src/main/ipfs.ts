@@ -44,11 +44,11 @@ export async function rpcRequest(
 export function ipfsTeardown() {
   try {
     if (readFileSync(PID_IPFS_FILE_PATH, 'utf8')) {
+      rmSync(PID_IPFS_FILE_PATH);
+      rmSync(path.join(IPFS_PATH, 'repo.lock'), { recursive: true });
       execSync(
         process.platform === 'win32' ? 'ipfs.exe shutdown' : '.synthetix/go-ipfs/ipfs shutdown'
       );
-      rmSync(PID_IPFS_FILE_PATH);
-      rmSync(path.join(IPFS_PATH, 'repo.lock'), { recursive: true });
       logger.log('IPFS teardown: PID file removed, daemon shutdown, and repo.lock removed');
     }
   } catch (e) {
